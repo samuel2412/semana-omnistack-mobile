@@ -2,10 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Image, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { requestPermissionsAsync, getCurrentPositionAsync } from 'expo-location';
-import { MaterialIcons } from '@expo/vector-icons'
+import { MaterialIcons } from '@expo/vector-icons';
+
+import api from '../services/api';
 
 const Main = (props) => {
-    const [currentRegion, setCurrentRegion] = useState(null)
+    const [currentRegion, setCurrentRegion] = useState(null);
+    const [devs, setDevs] = useState([]);
+    const [techs,setTechs] = useState('');
 
     useEffect(() => {
         const loadInitialPosition = async () => {
@@ -27,6 +31,30 @@ const Main = (props) => {
         loadInitialPosition();
     }, []);
 
+    const handleRegionChange = (region) => {
+        setCurrentRegion(region)
+    }
+
+
+
+    const loadDevs = () => {
+        const { latitude, longitude } = currentRegion;
+
+        api.get('/search', {
+            params: {
+                latitude,
+                longitude,
+                techs
+            }
+        })
+            .then(response => {
+                setDevs(response.data.devs);
+            })
+            .catch(err => {
+
+            })
+    }
+
     if (!currentRegion) {
         return null;
     }
@@ -36,22 +64,31 @@ const Main = (props) => {
 
     return (
         <React.Fragment>
-            <MapView initialRegion={currentRegion} style={styles.map}>
-                <Marker coordinate={{ latitude: -23.4882244, longitude: -46.478351 }}>
-                    <Image style={styles.avatar} source={{ uri: 'https://avatars3.githubusercontent.com/u/26292657?s=460&v=4' }} />
-                    <Callout onPress={() => {
-                        (
-                            props.navigation.navigate('Profile', { github_username: 'samuel2412' })
-                        )
-                    }}>
-                        <View style={styles.callout}>
-                            <Text style={styles.devName}>Samuel Alves</Text>
-                            <Text style={styles.devBio}>Frontend Developer | Java Developer</Text>
-                            <Text style={styles.devTechs}>ReactJs, React Native, Node.js</Text>
-                        </View>
-                    </Callout>
+            <MapView onRegionChangeComplete={handleRegionChange} initialRegion={currentRegion} style={styles.map}>
 
-                </Marker>
+                {devs.map(dev => (
+                    <Marker
+                        key={dev._id}
+                        coordinate={{
+                            latitude: dev.location.coordinates[1],
+                            longitude: dev.location.coordinates[0]
+                        }}>
+                        <Image style={styles.avatar} source={{ uri: dev.avatar_url }} />
+                        <Callout onPress={() => {
+                            (
+                                props.navigation.navigate('Profile', { github_username: dev.github_username })
+                            )
+                        }}>
+                            <View style={styles.callout}>
+                                <Text style={styles.devName}>{dev.name}</Text>
+                                <Text style={styles.devBio}>{dev.bio}</Text>
+                                <Text style={styles.devTechs}>{dev.techs.join(', ')}</Text>
+                            </View>
+                        </Callout>
+
+                    </Marker>
+                ))}
+
             </MapView>
             <View style={styles.searchForm}>
                 <TextInput
@@ -60,8 +97,10 @@ const Main = (props) => {
                     placeholderTextColor="#999"
                     autoCapitalize="words"
                     autoCorrect={false}
+                    value={techs}
+                    onChangeText={setTechs}
                 />
-                <TouchableOpacity onPress={() => { }} style={styles.loadButton}>
+                <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
                     <MaterialIcons name="my-location" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
